@@ -1,0 +1,35 @@
+{
+  "name": "kiaan-ai-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Kiaan AI Express + MySQL Backend API",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "migrate": "node src/db/migrate.js",
+    "test": "node --test src/tests/**/*.test.js",
+    "crm:rag:index": "node src/ai/rag/indexCli.js",
+    "crm:rag:test": "node src/ai/rag/testCli.js"
+  },
+  "keywords": [
+    "kiaan-ai",
+    "express",
+    "mysql",
+    "chatbot"
+  ],
+  "author": "Kiaan AI Team",
+  "license": "ISC",
+  "dependencies": {
+    "@qdrant/js-client-rest": "^1.20.0",
+    "bullmq": "^6.5.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "ioredis": "^6.0.0",
+    "jpeg-js": "^0.4.4",
+    "multer": "^2.5.0",
+    "mysql2": "^3.24.6",
+    "pngjs": "^7.0.0"
+  }
+}
