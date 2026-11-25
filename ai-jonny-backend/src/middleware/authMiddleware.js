@@ -31,9 +31,20 @@ export async function authMiddleware(req, res, next) {
       };
       return next();
     }
+
+    // Invalid or expired token: strictly treat as unauthenticated guest
+    req.user = {
+      id: 'guest',
+      name: 'Guest',
+      email: 'guest@workspace.local',
+      role: 'USER',
+      isGuest: true
+    };
+    return next();
   }
 
-  // 2. Identify user by X-User-Id header or persistent device/workspace ID
+  // 2. Unauthenticated Visitor / Guest Mode
+  // X-User-Id is strictly a device identifier for guest sessions and NEVER grants authenticated status.
   const headerUserId = req.headers['x-user-id'];
   const effectiveUserId = (headerUserId && headerUserId !== 'guest')
     ? headerUserId
@@ -44,7 +55,7 @@ export async function authMiddleware(req, res, next) {
     name: effectiveUserId === 'user_default' ? 'Alex Creator' : `User ${effectiveUserId.slice(-4)}`,
     email: `${effectiveUserId}@workspace.local`,
     role: 'USER',
-    isGuest: !authHeader
+    isGuest: true
   };
 
   try {
@@ -62,11 +73,10 @@ export async function authMiddleware(req, res, next) {
 }
 
 /**
- * Require valid JWT authentication.
+ * Require valid JWT authentication (Strictly non-guest).
  */
 export function requireAuth(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  if (!req.user || req.user.isGuest || !authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!req.user || req.user.isGuest) {
     return res.status(401).json({
       success: false,
       error: 'Authentication required. Please sign in with valid credentials.'
@@ -81,8 +91,7 @@ export function requireAuth(req, res, next) {
  */
 export function requireRole(...allowedRoles) {
   return (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    if (!req.user || req.user.isGuest || !authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!req.user || req.user.isGuest) {
       return res.status(401).json({
         success: false,
         error: 'Authentication required. Please sign in to perform this action.'

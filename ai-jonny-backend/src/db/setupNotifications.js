@@ -1,12 +1,13 @@
 import mysql from 'mysql2/promise';
+import { config } from '../config/index.js';
 
 async function setup() {
   const conn = await mysql.createConnection({
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'root',
-    password: '',
-    database: 'zumni_ai'
+    host: config.db.host,
+    port: config.db.port,
+    user: config.db.user,
+    password: config.db.password,
+    database: config.db.database
   });
 
   await conn.query(`

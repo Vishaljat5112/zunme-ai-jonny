@@ -23,17 +23,19 @@ import {
   CalendarEvent,
   PlatformIntegration
 } from '../types';
+import { apiClient, BackendUser } from '../services/apiClient';
 
 interface AppContextType {
   // Auth
   user: User | null;
+  isAuthLoading: boolean;
   login: (email: string, pass: string) => Promise<boolean>;
   register: (fullName: string, email: string, pass: string) => Promise<boolean>;
   logout: () => void;
   updateProfile: (fullName: string) => void;
   toggleRole: () => void;
   setRole: (role: UserRole) => void;
-  loginWithRole: (role: UserRole, targetName?: string) => void;
+  loginWithRole: (role: UserRole, targetName?: string) => Promise<boolean>;
 
   // Conversations & Chat
   conversations: Conversation[];
@@ -42,7 +44,10 @@ interface AppContextType {
   isAiResponding: boolean;
   createNewChat: () => void;
   selectConversation: (id: string) => void;
-  sendMessage: (content: string) => void;
+  sendMessage: (
+    content: string,
+    options?: { model?: string; webSearch?: boolean; attachmentIds?: string[] }
+  ) => void;
   deleteConversation: (id: string) => void;
 
   // Web Search
@@ -671,11 +676,104 @@ const INITIAL_INTEGRATIONS: PlatformIntegration[] = [
 ];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(DEFAULT_USER);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS);
   const [activeConversationId, setActiveConversationId] = useState<string>('conv_1');
   const [messagesRecord, setMessagesRecord] = useState<Record<string, ChatMessage[]>>(INITIAL_MESSAGES);
   const [isAiResponding, setIsAiResponding] = useState<boolean>(false);
+
+  // Helper to map backend user record to frontend User interface
+  const mapBackendUser = (bu: BackendUser): User => ({
+    id: bu.id,
+    email: bu.email,
+    fullName: bu.name || bu.email.split('@')[0],
+    role: bu.role,
+    avatar_initials: bu.avatar_initials,
+    plan_badge: bu.plan_badge,
+    createdAt: bu.created_at || new Date().toISOString()
+  });
+
+  // Hydrate user conversations & library from real MySQL backend
+  const hydrateUserData = React.useCallback(async () => {
+    try {
+      const [convs, items] = await Promise.allSettled([
+        apiClient.getConversations(),
+        apiClient.getLibraryItems()
+      ]);
+
+      if (convs.status === 'fulfilled' && convs.value.length > 0) {
+        setConversations(convs.value);
+        setActiveConversationId(convs.value[0].id);
+        try {
+          const msgs = await apiClient.getMessages(convs.value[0].id);
+          setMessagesRecord({ [convs.value[0].id]: msgs });
+        } catch (msgErr) {
+          console.warn('Initial message hydration error:', msgErr);
+        }
+      } else if (convs.status === 'fulfilled' && convs.value.length === 0) {
+        setConversations([]);
+        const newId = 'conv_' + Date.now();
+        const initialConv: Conversation = {
+          id: newId,
+          title: 'New Conversation',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        apiClient.createConversation(newId, 'New Conversation').catch(() => {});
+        setConversations([initialConv]);
+        setActiveConversationId(newId);
+        setMessagesRecord({ [newId]: [] });
+      }
+
+      if (items.status === 'fulfilled') {
+        setLibraryItems(items.value);
+      }
+    } catch (err) {
+      console.warn('Hydration error:', err);
+    }
+  }, []);
+
+  // Session Hydration on initial mount
+  React.useEffect(() => {
+    let isMounted = true;
+    async function restoreSession() {
+      const token = apiClient.getToken();
+      if (!token) {
+        if (isMounted) {
+          setUser(null);
+          setIsAuthLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const res = await apiClient.getMe();
+        if (isMounted) {
+          if (res.authenticated && res.user) {
+            setUser(mapBackendUser(res.user));
+            hydrateUserData();
+          } else {
+            apiClient.removeToken();
+            setUser(null);
+          }
+        }
+      } catch (err) {
+        console.warn('Session restoration failed:', err);
+        if (isMounted) {
+          apiClient.removeToken();
+          setUser(null);
+        }
+      } finally {
+        if (isMounted) setIsAuthLoading(false);
+      }
+    }
+
+    restoreSession();
+    return () => {
+      isMounted = false;
+    };
+  }, [hydrateUserData]);
 
   // Search State
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
@@ -722,33 +820,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 3200);
   };
 
-  // Auth Functions
-  const login = async (email: string, _pass: string): Promise<boolean> => {
-    setUser({
-      id: 'usr_' + Date.now(),
-      email,
-      fullName: email.split('@')[0].replace('.', ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      role: 'USER',
-      createdAt: new Date().toISOString()
-    });
-    showToast('Signed in successfully!', 'success');
-    return true;
+  // Auth Functions (Real Backend REST Integration)
+  const login = async (email: string, pass: string): Promise<boolean> => {
+    try {
+      const res = await apiClient.login(email, pass);
+      if (res.success && res.user) {
+        setUser(mapBackendUser(res.user));
+        hydrateUserData();
+        showToast(`Welcome back, ${res.user.name || 'User'}!`, 'success');
+        return true;
+      }
+      showToast(res.error || 'Login failed', 'error');
+      return false;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Invalid login credentials.';
+      showToast(msg, 'error');
+      return false;
+    }
   };
 
-  const register = async (fullName: string, email: string, _pass: string): Promise<boolean> => {
-    setUser({
-      id: 'usr_' + Date.now(),
-      email,
-      fullName,
-      role: 'USER',
-      createdAt: new Date().toISOString()
-    });
-    showToast('Account created! Welcome to Zunme AI.', 'success');
-    return true;
+  const register = async (fullName: string, email: string, pass: string): Promise<boolean> => {
+    try {
+      const res = await apiClient.register(fullName, email, pass);
+      if (res.success && res.user) {
+        setUser(mapBackendUser(res.user));
+        hydrateUserData();
+        showToast('Account created! Welcome to Zunme AI.', 'success');
+        return true;
+      }
+      showToast(res.error || 'Registration failed', 'error');
+      return false;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Registration failed.';
+      showToast(msg, 'error');
+      return false;
+    }
   };
 
   const logout = () => {
+    apiClient.logout();
     setUser(null);
+    setConversations(INITIAL_CONVERSATIONS);
+    setActiveConversationId('conv_1');
+    setMessagesRecord(INITIAL_MESSAGES);
+    setLibraryItems(INITIAL_LIBRARY_ITEMS);
     showToast('Signed out of workspace', 'info');
   };
 
@@ -759,42 +874,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const toggleRole = () => {
+  const loginWithRole = async (role: UserRole, targetName?: string): Promise<boolean> => {
+    try {
+      const res = await apiClient.personaLogin(targetName || role);
+      if (res.success && res.user) {
+        setUser(mapBackendUser(res.user));
+        hydrateUserData();
+        showToast(
+          `Authenticated as ${res.user.role === 'SUPER_ADMIN' ? 'Super Admin' : res.user.role === 'ADMIN' ? 'Admin' : 'Creator'}${targetName ? ` (${targetName})` : ''}`,
+          'success'
+        );
+        return true;
+      }
+      showToast(res.error || 'Authentication failed', 'error');
+      return false;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Role authentication failed';
+      showToast(msg, 'error');
+      return false;
+    }
+  };
+
+  const toggleRole = async () => {
     if (user) {
       let nextRole: UserRole = 'USER';
       if (user.role === 'USER') nextRole = 'ADMIN';
       else if (user.role === 'ADMIN') nextRole = 'SUPER_ADMIN';
       else nextRole = 'USER';
-      setUser({ ...user, role: nextRole });
-      showToast(`Switched user role to ${nextRole} for verification`, 'info');
+      await loginWithRole(nextRole);
     }
   };
 
-  const setRole = (role: UserRole) => {
+  const setRole = async (role: UserRole) => {
     if (user) {
-      setUser({ ...user, role });
-      showToast(`Switched user role to ${role}`, 'info');
+      await loginWithRole(role);
     }
-  };
-
-  const loginWithRole = (role: UserRole, targetName?: string) => {
-    const demoProfiles: Record<UserRole, { fullName: string; email: string }> = {
-      SUPER_ADMIN: { fullName: 'Alex Johnson', email: 'superadmin@zunme.ai' },
-      ADMIN: { fullName: 'Operations Admin', email: 'admin@zunme.ai' },
-      USER: { fullName: 'Alex Creator', email: 'alex.creator@zunme.ai' }
-    };
-    const profile = demoProfiles[role] || demoProfiles.USER;
-    setUser({
-      id: 'usr_' + Date.now(),
-      email: profile.email,
-      fullName: profile.fullName,
-      role,
-      createdAt: new Date().toISOString()
-    });
-    showToast(
-      `Logged in as ${role === 'SUPER_ADMIN' ? 'Super Admin' : role === 'ADMIN' ? 'Admin' : 'Creator'}${targetName ? ` (${targetName})` : ''}`,
-      'success'
-    );
   };
 
   // Chat Functions
@@ -806,6 +920,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    if (user) {
+      apiClient.createConversation(newId, 'New Conversation').catch((e) => {
+        console.warn('Backend createConversation non-blocking error:', e);
+      });
+    }
     setConversations((prev) => [newConv, ...prev]);
     setActiveConversationId(newId);
     setMessagesRecord((prev) => ({
@@ -814,16 +933,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const selectConversation = (id: string) => {
+  const selectConversation = async (id: string) => {
     setActiveConversationId(id);
+    if (user && (!messagesRecord[id] || messagesRecord[id].length === 0)) {
+      try {
+        const msgs = await apiClient.getMessages(id);
+        setMessagesRecord((prev) => ({
+          ...prev,
+          [id]: msgs
+        }));
+      } catch (err) {
+        console.warn('Error fetching conversation messages:', err);
+      }
+    }
   };
 
   const deleteConversation = (id: string) => {
+    if (user) {
+      apiClient.deleteConversation(id).catch((e) => {
+        console.warn('Backend deleteConversation non-blocking error:', e);
+      });
+    }
     setConversations((prev) => prev.filter((c) => c.id !== id));
     if (activeConversationId === id) {
       const remaining = conversations.filter((c) => c.id !== id);
       if (remaining.length > 0) {
-        setActiveConversationId(remaining[0].id);
+        selectConversation(remaining[0].id);
       } else {
         createNewChat();
       }
@@ -831,54 +966,130 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('Conversation deleted', 'info');
   };
 
-  const sendMessage = (content: string) => {
-    if (!content.trim()) return;
+  const sendMessage = async (
+    content: string,
+    options?: { model?: string; webSearch?: boolean; attachmentIds?: string[] }
+  ) => {
+    if (!content.trim() || isAiResponding) return;
+
+    const userMsgId = 'msg_u_' + Date.now();
+    const assistantMsgId = 'msg_a_' + Date.now();
+    const convId = activeConversationId;
 
     const userMsg: ChatMessage = {
-      id: 'msg_u_' + Date.now(),
-      conversationId: activeConversationId,
+      id: userMsgId,
+      conversationId: convId,
       role: 'user',
-      content,
+      content: content.trim(),
+      createdAt: new Date().toISOString(),
+      attachmentIds: options?.attachmentIds
+    };
+
+    const initialAssistantMsg: ChatMessage = {
+      id: assistantMsgId,
+      conversationId: convId,
+      role: 'assistant',
+      content: '',
+      isStreaming: true,
       createdAt: new Date().toISOString()
     };
 
+    // Optimistically update message canvas
     setMessagesRecord((prev) => ({
       ...prev,
-      [activeConversationId]: [...(prev[activeConversationId] || []), userMsg]
+      [convId]: [...(prev[convId] || []), userMsg, initialAssistantMsg]
     }));
 
-    // Update conversation title if it was "New Conversation"
-    setConversations((prev) =>
-      prev.map((c) => {
-        if (c.id === activeConversationId && c.title === 'New Conversation') {
-          return {
-            ...c,
-            title: content.slice(0, 32) + (content.length > 32 ? '...' : ''),
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return c;
-      })
-    );
-
-    // Simulate AI response with natural delay
     setIsAiResponding(true);
-    setTimeout(() => {
-      const aiResponseContent = generateSimulatedAiResponse(content);
-      const aiMsg: ChatMessage = {
-        id: 'msg_a_' + Date.now(),
-        conversationId: activeConversationId,
-        role: 'assistant',
-        content: aiResponseContent,
-        createdAt: new Date().toISOString()
-      };
 
-      setMessagesRecord((prev) => ({
-        ...prev,
-        [activeConversationId]: [...(prev[activeConversationId] || []), aiMsg]
-      }));
+    // Build context history for guest mode or fallback
+    const currentHistory = (messagesRecord[convId] || []).map((m) => ({
+      role: m.role,
+      content: m.content
+    }));
+
+    try {
+      let accumulatedText = '';
+      await apiClient.sendMessageStream({
+        conversationId: convId,
+        content: content.trim(),
+        model: options?.model,
+        attachmentIds: options?.attachmentIds,
+        webSearch: options?.webSearch,
+        history: currentHistory,
+        onChunk: (delta: string) => {
+          accumulatedText += delta;
+          setMessagesRecord((prev) => {
+            const list = prev[convId] || [];
+            return {
+              ...prev,
+              [convId]: list.map((m) =>
+                m.id === assistantMsgId
+                  ? { ...m, content: accumulatedText, isStreaming: true }
+                  : m
+              )
+            };
+          });
+        },
+        onDone: (finalMsg: ChatMessage) => {
+          setMessagesRecord((prev) => {
+            const list = prev[convId] || [];
+            return {
+              ...prev,
+              [convId]: list.map((m) =>
+                m.id === assistantMsgId
+                  ? { ...m, content: finalMsg.content || accumulatedText, isStreaming: false, status: 'completed' }
+                  : m
+              )
+            };
+          });
+
+          // Auto-title conversation in sidebar if it was "New Conversation"
+          setConversations((prev) =>
+            prev.map((c) => {
+              if (c.id === convId && c.title === 'New Conversation') {
+                return {
+                  ...c,
+                  title: content.trim().slice(0, 32) + (content.trim().length > 32 ? '...' : ''),
+                  updatedAt: new Date().toISOString()
+                };
+              }
+              return c;
+            })
+          );
+        },
+        onError: (err: string) => {
+          setMessagesRecord((prev) => {
+            const list = prev[convId] || [];
+            return {
+              ...prev,
+              [convId]: list.map((m) =>
+                m.id === assistantMsgId
+                  ? { ...m, content: `Error: ${err}`, isStreaming: false, status: 'failed' }
+                  : m
+              )
+            };
+          });
+          showToast(err, 'error');
+        }
+      });
+    } catch (sendErr: unknown) {
+      const errMsg = sendErr instanceof Error ? sendErr.message : 'Failed to reach AI service';
+      setMessagesRecord((prev) => {
+        const list = prev[convId] || [];
+        return {
+          ...prev,
+          [convId]: list.map((m) =>
+            m.id === assistantMsgId
+              ? { ...m, content: `Error: ${errMsg}`, isStreaming: false, status: 'failed' }
+              : m
+          )
+        };
+      });
+      showToast(errMsg, 'error');
+    } finally {
       setIsAiResponding(false);
-    }, 1100);
+    }
   };
 
   // Web Search Simulation
@@ -957,7 +1168,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Library Functions
-  const saveToLibrary = (item: Omit<SavedLibraryItem, 'id' | 'createdAt'>) => {
+  const saveToLibrary = async (item: Omit<SavedLibraryItem, 'id' | 'createdAt'>) => {
+    if (user) {
+      try {
+        const saved = await apiClient.createLibraryItem(item);
+        setLibraryItems((prev) => [saved, ...prev.filter((i) => i.id !== saved.id)]);
+        showToast(`Saved "${saved.title}" to My Library`, 'success');
+        return;
+      } catch (err) {
+        console.warn('Backend saveToLibrary error, falling back to local state:', err);
+      }
+    }
     const newItem: SavedLibraryItem = {
       ...item,
       id: 'lib_' + Date.now(),
@@ -967,7 +1188,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Saved "${newItem.title}" to My Library`, 'success');
   };
 
-  const deleteFromLibrary = (id: string) => {
+  const deleteFromLibrary = async (id: string) => {
+    if (user) {
+      try {
+        await apiClient.deleteLibraryItem(id);
+      } catch (err) {
+        console.warn('Backend deleteFromLibrary error:', err);
+      }
+    }
     setLibraryItems((prev) => prev.filter((item) => item.id !== id));
     showToast('Item removed from Library', 'info');
   };
@@ -1089,6 +1317,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider
       value={{
         user,
+        isAuthLoading,
         login,
         register,
         logout,

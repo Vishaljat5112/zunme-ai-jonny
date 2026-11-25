@@ -17,10 +17,23 @@ const ALLOWED_EXTENSIONS = new Set([
   // Video
   '.mp4', '.mov', '.mkv',
   // Documents
-  '.pdf', '.txt', '.md', '.json', '.csv'
+  '.pdf', '.txt', '.md', '.json', '.csv',
+  // Office, Tabular Data & EgoLytics Charts Foundation
+  '.xlsx', '.xls', '.docx', '.doc', '.pptx', '.ppt', '.tsv'
 ]);
 
-const ALLOWED_MIME_PREFIXES = ['image/', 'audio/', 'video/', 'application/pdf', 'text/', 'application/json'];
+const ALLOWED_MIME_PREFIXES = [
+  'image/',
+  'audio/',
+  'video/',
+  'application/pdf',
+  'text/',
+  'application/json',
+  'application/vnd.openxmlformats-officedocument',
+  'application/vnd.ms-excel',
+  'application/msword',
+  'application/vnd.ms-powerpoint'
+];
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -41,18 +54,30 @@ const fileFilter = (req, file, cb) => {
   // Block dangerous executable extensions
   const blockedExtensions = ['.exe', '.bat', '.cmd', '.sh', '.php', '.phtml', '.js', '.mjs', '.vbs', '.scr'];
   if (blockedExtensions.includes(rawExt)) {
-    return cb(new Error(`File type '${rawExt}' is forbidden for security.`), false);
+    const err = new Error(`File type '${rawExt}' is forbidden for security.`);
+    err.status = 400;
+    err.statusCode = 400;
+    err.code = 'INVALID_FILE_TYPE';
+    return cb(err, false);
   }
 
   // Validate allowed extension
   if (!ALLOWED_EXTENSIONS.has(rawExt)) {
-    return cb(new Error(`Unsupported file extension: '${rawExt}'. Supported types: images, audio, video, PDF, text.`), false);
+    const err = new Error(`Unsupported file extension: '${rawExt}'. Supported types: images, audio, video, PDF, text, Office & spreadsheets.`);
+    err.status = 400;
+    err.statusCode = 400;
+    err.code = 'INVALID_FILE_EXTENSION';
+    return cb(err, false);
   }
 
   // Validate MIME type prefix
   const isValidMime = ALLOWED_MIME_PREFIXES.some((prefix) => file.mimetype.startsWith(prefix));
   if (!isValidMime) {
-    return cb(new Error(`Invalid or untrusted MIME type: '${file.mimetype}'.`), false);
+    const err = new Error(`Invalid or untrusted MIME type: '${file.mimetype}'.`);
+    err.status = 400;
+    err.statusCode = 400;
+    err.code = 'INVALID_MIME_TYPE';
+    return cb(err, false);
   }
 
   cb(null, true);

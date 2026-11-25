@@ -39,12 +39,14 @@ export const LibraryPage: React.FC = () => {
     });
   }, [libraryItems, selectedCategory, searchQuery]);
 
-  const counts = useMemo(() => {
+  const counts = useMemo<Record<string, number>>(() => {
     return {
       ALL: libraryItems.length,
       TEXT: libraryItems.filter((i) => i.contentType === 'TEXT').length,
       RESEARCH: libraryItems.filter((i) => i.contentType === 'RESEARCH').length,
-      MARKETING: libraryItems.filter((i) => i.contentType === 'MARKETING').length
+      MARKETING: libraryItems.filter((i) => i.contentType === 'MARKETING').length,
+      OFFICE: libraryItems.filter((i) => i.contentType === 'OFFICE').length,
+      CHART: libraryItems.filter((i) => i.contentType === 'CHART').length
     };
   }, [libraryItems]);
 
@@ -115,7 +117,7 @@ export const LibraryPage: React.FC = () => {
         </div>
 
         <div className="category-filter-pills" role="tablist">
-          {(['ALL', 'TEXT', 'RESEARCH', 'MARKETING'] as LibraryCategory[]).map((cat) => (
+          {(['ALL', 'TEXT', 'RESEARCH', 'MARKETING', 'OFFICE', 'CHART'] as LibraryCategory[]).map((cat) => (
             <button
               key={cat}
               type="button"
@@ -124,7 +126,7 @@ export const LibraryPage: React.FC = () => {
             >
               <span>{cat === 'ALL' ? 'All Items' : cat.charAt(0) + cat.slice(1).toLowerCase()}</span>
               <span className="badge badge-neutral" style={{ padding: '1px 6px', fontSize: '10px' }}>
-                {counts[cat]}
+                {counts[cat] || 0}
               </span>
             </button>
           ))}

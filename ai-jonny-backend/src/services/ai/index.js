@@ -63,7 +63,7 @@ export function resolveAiProvider(modelName) {
     if (modelName.startsWith('gemini-')) {
       return getAiProvider('gemini');
     }
-    if (modelName.startsWith('qwen') || modelName.startsWith('gemma') || modelName.startsWith('llama') || modelName.startsWith('nomic') || modelName.startsWith('ollama')) {
+    if (modelName.startsWith('qwen') || modelName.startsWith('gemma') || modelName.startsWith('llama') || modelName.startsWith('nomic') || modelName.startsWith('ollama') || modelName.startsWith('smollm') || modelName.startsWith('deepseek') || modelName.startsWith('glm')) {
       return getAiProvider('ollama');
     }
   }

@@ -24,6 +24,9 @@ import {
   Upload
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { aiService } from '../services/aiService';
+import { storageService } from '../services/storageService';
+import { ModelInfo } from '../services/apiClient';
 import './ChatPage.css';
 
 export const ChatPage: React.FC = () => {
@@ -33,7 +36,8 @@ export const ChatPage: React.FC = () => {
     sendMessage,
     saveToLibrary,
     showToast,
-    user
+    user,
+    activeConversationId
   } = useApp();
   const navigate = useNavigate();
 
@@ -45,17 +49,41 @@ export const ChatPage: React.FC = () => {
   const [voiceTranscript, setVoiceTranscript] = useState<string>('Explain the competitive advantages of Zunme AI compared to traditional LLMs in 2026.');
   const [deepResearchActive, setDeepResearchActive] = useState<boolean>(false);
 
+  // Active AI Models
+  const [models, setModels] = useState<ModelInfo[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('gemma3:4b');
+
   // Multimodal Image & Screenshot Attachment State
   const [attachedImage, setAttachedImage] = useState<{
     name: string;
     url: string;
     sizeKb: number;
+    rawFile?: File;
   } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{
+    name: string;
+    sizeKb: number;
+    rawFile: File;
+  } | null>(null);
+
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasSentInitialPrompt = useRef(false);
+
+  // Fetch available AI models from backend
+  useEffect(() => {
+    aiService.getAvailableModels().then((mList) => {
+      if (mList && mList.length > 0) {
+        setModels(mList);
+        if (!mList.some((m) => m.id === selectedModel)) {
+          setSelectedModel(mList[0].id);
+        }
+      }
+    });
+  }, []);
 
   // Check if routed with a prompt from Landing Page
   useEffect(() => {
@@ -86,11 +114,23 @@ export const ChatPage: React.FC = () => {
       setAttachedImage({
         name: file.name,
         url: event.target?.result as string,
-        sizeKb: Math.round(file.size / 1024)
+        sizeKb: Math.round(file.size / 1024),
+        rawFile: file
       });
       showToast(`Attached "${file.name}" for Multimodal Vision inspection`, 'info');
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachedFile({
+      name: file.name,
+      sizeKb: Math.round(file.size / 1024),
+      rawFile: file
+    });
+    showToast(`Attached file "${file.name}" (${Math.round(file.size / 1024)} KB)`, 'info');
   };
 
   const handleSelectSampleScreenshot = (sampleType: 'dashboard' | 'mockup') => {
@@ -112,20 +152,44 @@ export const ChatPage: React.FC = () => {
     showToast('Loaded sample screenshot for Multimodal AI analysis', 'info');
   };
 
-  const handleSend = () => {
-    if ((!inputMessage.trim() && !attachedImage) || isAiResponding) return;
+  const handleSend = async () => {
+    if ((!inputMessage.trim() && !attachedImage && !attachedFile) || isAiResponding) return;
 
     let finalMsg = inputMessage.trim();
     if (attachedImage) {
       finalMsg = `[MULTIMODAL IMAGE ATTACHMENT: ${attachedImage.name} (${attachedImage.sizeKb} KB)]\n${finalMsg || 'Please analyze this uploaded visual asset and provide comprehensive insights.'}`;
     }
+    if (attachedFile) {
+      finalMsg = `[FILE ATTACHMENT: ${attachedFile.name} (${attachedFile.sizeKb} KB)]\n${finalMsg || 'Please process this attached document/data.'}`;
+    }
     if (deepResearchActive) {
       finalMsg = `[DEEP RESEARCH SYNTHESIS: Multi-Step Verified Data Gathering]\n${finalMsg}`;
     }
 
-    sendMessage(finalMsg);
+    const attachmentIds: string[] = [];
+
+    // If authenticated and file is present, upload via storageService to local backend storage
+    const fileToUpload = attachedImage?.rawFile || attachedFile?.rawFile;
+    if (user && fileToUpload) {
+      try {
+        const uploaded = await storageService.uploadFiles(activeConversationId, [fileToUpload]);
+        if (uploaded && uploaded.length > 0) {
+          attachmentIds.push(uploaded[0].id);
+        }
+      } catch (upErr) {
+        console.warn('File upload non-blocking warning:', upErr);
+      }
+    }
+
+    sendMessage(finalMsg, {
+      model: selectedModel,
+      webSearch: autoGrounding,
+      attachmentIds
+    });
+
     setInputMessage('');
     setAttachedImage(null);
+    setAttachedFile(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = '48px';
     }
@@ -175,7 +239,32 @@ export const ChatPage: React.FC = () => {
         <div className="chat-model-info">
           <div className="model-badge">
             <Sparkles size={13} />
-            <span>Zunme Core 4o</span>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              title="Select AI Model"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'inherit',
+                fontSize: '12px',
+                fontWeight: '700',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              {models.length > 0 ? (
+                models.map((m) => (
+                  <option key={m.id} value={m.id} style={{ color: '#111625', background: '#FFFFFF' }}>
+                    {m.name || m.id}
+                  </option>
+                ))
+              ) : (
+                <option value="gemma3:4b" style={{ color: '#111625', background: '#FFFFFF' }}>
+                  Gemma 3 (4B) 🌟 [Default]
+                </option>
+              )}
+            </select>
           </div>
           <span style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
             Context Window: 128k
@@ -468,10 +557,32 @@ export const ChatPage: React.FC = () => {
             </div>
           )}
 
+          {attachedFile && (
+            <div className="image-attachment-preview-bar">
+              <div className="image-preview-meta">
+                <div style={{ width: '32px', height: '32px', borderRadius: '6px', background: '#E8ECF5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Paperclip size={16} color="#635BFF" />
+                </div>
+                <div className="image-preview-info">
+                  <span className="image-preview-name">{attachedFile.name}</span>
+                  <span className="image-preview-sub">📄 Document / Data Attached ({attachedFile.sizeKb} KB)</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="image-remove-btn"
+                onClick={() => setAttachedFile(null)}
+                title="Remove file"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          )}
+
           <textarea
             ref={textareaRef}
             className="chat-textarea"
-            placeholder="Ask anything, describe what to create, or attach a screenshot/image... (Press Enter to send)"
+            placeholder="Ask anything, describe what to create, or attach a screenshot/document... (Press Enter to send)"
             value={inputMessage}
             onChange={(e) => {
               setInputMessage(e.target.value);
@@ -512,6 +623,34 @@ export const ChatPage: React.FC = () => {
                 accept="image/*"
                 style={{ display: 'none' }}
                 onChange={handleImageSelect}
+              />
+
+              <button
+                type="button"
+                className="btn-ghost btn-sm"
+                onClick={() => fileInputRef.current?.click()}
+                title="Upload Document or Data (CSV, XLSX, PDF, TXT)"
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  fontSize: '11.5px',
+                  fontWeight: '700',
+                  color: attachedFile ? '#635BFF' : '#4B5563',
+                  background: attachedFile ? 'rgba(99, 91, 255, 0.12)' : 'transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Paperclip size={14} color="#635BFF" />
+                <span>Attach File</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls,.pdf,.txt,.json,.docx"
+                style={{ display: 'none' }}
+                onChange={handleFileSelect}
               />
 
               <button

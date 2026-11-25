@@ -33,7 +33,7 @@ interface PersonaRole {
 }
 
 export const LoginPage: React.FC = () => {
-  const { loginWithRole } = useApp();
+  const { login, loginWithRole } = useApp();
   const navigate = useNavigate();
 
   // Exactly the 6 dashboards from the original modal shown in Image 2
@@ -108,24 +108,50 @@ export const LoginPage: React.FC = () => {
 
   const [selectedPersona, setSelectedPersona] = useState<PersonaRole>(personas[0]);
   const [email, setEmail] = useState<string>(personas[0].email);
-  const [password, setPassword] = useState<string>('Password123!');
+  const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSelectPersona = (persona: PersonaRole) => {
     setSelectedPersona(persona);
     setEmail(persona.email);
+    setError(null);
   };
 
-  const handleSignInWithRole = (e?: React.FormEvent) => {
+  const handleSignInWithRole = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      loginWithRole(selectedPersona.role, selectedPersona.name);
+    setError(null);
+    try {
+      const success = await login(email, password);
       setIsLoading(false);
-      navigate(selectedPersona.path);
-    }, 400);
+      if (success) {
+        navigate(selectedPersona.path);
+      }
+    } catch (err: unknown) {
+      setIsLoading(false);
+      const msg = err instanceof Error ? err.message : 'Invalid credentials. Please try again.';
+      setError(msg);
+    }
+  };
+
+  const handleDirectPersonaLogin = async (persona: PersonaRole) => {
+    setSelectedPersona(persona);
+    setEmail(persona.email);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const success = await loginWithRole(persona.role, persona.name);
+      setIsLoading(false);
+      if (success) {
+        navigate(persona.path);
+      }
+    } catch (err: unknown) {
+      setIsLoading(false);
+      const msg = err instanceof Error ? err.message : 'Authentication failed';
+      setError(msg);
+    }
   };
 
   return (
@@ -292,19 +318,12 @@ export const LoginPage: React.FC = () => {
                   <button
                     key={persona.id}
                     type="button"
-                    className={`energy-persona-card ${isSelected ? 'is-selected' : ''}`}
+                    className={`energy-persona-card persona-auth-row ${isSelected ? 'is-selected' : ''}`}
                     onClick={() => {
-                      if (isSelected) {
-                        // Direct instant sign-in on clicking already selected card
-                        loginWithRole(persona.role, persona.name);
-                        navigate(persona.path);
-                      } else {
-                        handleSelectPersona(persona);
-                      }
+                      handleDirectPersonaLogin(persona);
                     }}
                     onDoubleClick={() => {
-                      loginWithRole(persona.role, persona.name);
-                      navigate(persona.path);
+                      handleDirectPersonaLogin(persona);
                     }}
                   >
                     <div
@@ -328,8 +347,7 @@ export const LoginPage: React.FC = () => {
                       style={{ display: 'inline-flex', alignItems: 'center' }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        loginWithRole(persona.role, persona.name);
-                        navigate(persona.path);
+                        handleDirectPersonaLogin(persona);
                       }}
                       title={`Sign in to ${persona.name}`}
                     >

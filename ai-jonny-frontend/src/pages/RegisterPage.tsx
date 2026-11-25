@@ -96,16 +96,17 @@ export const RegisterPage: React.FC = () => {
     }
 
     setIsLoading(true);
-    setTimeout(async () => {
-      try {
-        await register(fullName, email, password);
-        setIsLoading(false);
+    try {
+      const ok = await register(fullName, email, password);
+      setIsLoading(false);
+      if (ok) {
         navigate('/user/dashboard');
-      } catch (err) {
-        setIsLoading(false);
-        setError('Registration failed. Please try again or sign in.');
       }
-    }, 750);
+    } catch (err: unknown) {
+      setIsLoading(false);
+      const msg = err instanceof Error ? err.message : 'Registration failed. Please try again or sign in.';
+      setError(msg);
+    }
   };
 
   return (

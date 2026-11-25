@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { config } from '../config/index.js';
 import { MessageService } from '../services/messageService.js';
 import { ConversationService } from '../services/conversationService.js';
 import { AttachmentService } from '../services/attachmentService.js';
@@ -89,6 +90,8 @@ export class MessageController {
 
     const isGuest = Boolean(req.user?.isGuest);
     const pool = getPool();
+    const defaultModel = config.ai.ollamaDefaultModel || 'gemma3:4b';
+    const effectiveModel = model || defaultModel;
 
     try {
       let userMessage = null;
@@ -110,7 +113,7 @@ export class MessageController {
             id: conversationId,
             userId: req.user.id,
             title: titleSnippet,
-            model: model || 'grok-4.20-0309-non-reasoning'
+            model: effectiveModel
           });
           isFirstMessage = true;
         } else {
@@ -270,7 +273,7 @@ export class MessageController {
             jobId,
             conversationId,
             userId: req.user.id,
-            model: model || 'grok-4.20-0309-non-reasoning',
+            model: effectiveModel,
             messages: contextMessages,
             attachments: attachmentsData,
             userMemories,
@@ -321,7 +324,7 @@ export class MessageController {
               conversationId,
               content: abortController.signal.aborted ? 'Generation was stopped by user.' : `Error: ${genErr.message}`,
               status: abortController.signal.aborted ? 'cancelled' : 'failed',
-              model: model || 'grok-4.20-0309-non-reasoning'
+              model: effectiveModel
             });
           } else {
             failedMessage = {
@@ -330,7 +333,7 @@ export class MessageController {
               role: 'assistant',
               content: abortController.signal.aborted ? 'Generation was stopped by user.' : `Error: ${genErr.message}`,
               status: abortController.signal.aborted ? 'cancelled' : 'failed',
-              model: model || 'grok-4.20-0309-non-reasoning',
+              model: effectiveModel,
               isGuest: true
             };
           }
@@ -350,7 +353,7 @@ export class MessageController {
             jobId,
             conversationId,
             userId: req.user.id,
-            model: model || 'grok-4.20-0309-non-reasoning',
+            model: effectiveModel,
             messages: contextMessages,
             attachments: attachmentsData,
             userMemories,
@@ -365,7 +368,7 @@ export class MessageController {
               conversationId,
               content: aiResult.content,
               status: 'completed',
-              model: aiResult.model || model,
+              model: aiResult.model || effectiveModel,
               tokensUsed: aiResult.tokensUsed || 0
             });
           } else {
@@ -375,7 +378,7 @@ export class MessageController {
               role: 'assistant',
               content: aiResult.content,
               status: 'completed',
-              model: aiResult.model || model,
+              model: aiResult.model || effectiveModel,
               created_at: new Date().toISOString(),
               isGuest: true
             };
@@ -404,6 +407,22 @@ export class MessageController {
     try {
       const { conversationId } = req.params;
       const { limit = 50, offset = 0 } = req.query;
+      const isGuest = Boolean(req.user?.isGuest);
+
+      if (isGuest) {
+        return res.json({ success: true, messages: [] });
+      }
+
+      const pool = getPool();
+      const [convRows] = await pool.query(
+        'SELECT id FROM conversations WHERE id = ? AND user_id = ?',
+        [conversationId, req.user.id]
+      );
+
+      if (convRows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Conversation not found or unauthorized' });
+      }
+
       const messages = await MessageService.listMessages(conversationId, { limit, offset });
       res.json({ success: true, messages });
     } catch (err) {
@@ -421,6 +440,15 @@ export class MessageController {
       let contextMessages = [];
 
       if (!isGuest) {
+        const [convRows] = await pool.query(
+          'SELECT id FROM conversations WHERE id = ? AND user_id = ?',
+          [conversationId, req.user.id]
+        );
+
+        if (convRows.length === 0) {
+          return res.status(404).json({ success: false, error: 'Conversation not found or unauthorized' });
+        }
+
         const [userMsgRows] = await pool.query(
           "SELECT * FROM messages WHERE conversation_id = ? AND role = 'user' ORDER BY created_at DESC LIMIT 1",
           [conversationId]

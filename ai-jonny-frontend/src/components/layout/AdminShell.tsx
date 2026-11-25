@@ -38,11 +38,15 @@ export const AdminShell: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
+  if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+    return <Navigate to="/user/home" replace />;
+  }
+
 
   const displayName = (user?.fullName || 'Operations Manager').replace(/\s*\([^)]*\)/g, '').trim();
 
   return (
-    <div className="admin-shell">
+    <div className="admin-shell admin-shell-container">
       {/* Mobile Drawer Overlay */}
       {mobileMenuOpen && (
         <div

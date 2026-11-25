@@ -34,6 +34,10 @@ export const SuperAdminShell: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
+  if (user.role !== 'SUPER_ADMIN') {
+    return <Navigate to="/user/home" replace />;
+  }
+
 
   const displayName = (user?.fullName || 'Super Administrator').replace(/\s*\([^)]*\)/g, '').trim();
 

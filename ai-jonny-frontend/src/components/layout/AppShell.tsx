@@ -85,12 +85,21 @@ export const AppShell: React.FC = () => {
     navigate('/login', { replace: true });
   };
 
-  // Allow public access to store, shop, and merchant zone
+  // Allow public and guest access across user workspaces; protected consoles are guarded by ProtectedRoute
   const isPublicRoute =
+    location.pathname.startsWith('/search') ||
     location.pathname.startsWith('/store') ||
     location.pathname.startsWith('/shop') ||
     location.pathname.startsWith('/merchant-zone') ||
-    location.pathname.startsWith('/merchant');
+    location.pathname.startsWith('/merchant') ||
+    location.pathname.startsWith('/user') ||
+    location.pathname.startsWith('/warehouse') ||
+    location.pathname.startsWith('/creator') ||
+    location.pathname.startsWith('/seo') ||
+    location.pathname.startsWith('/business') ||
+    location.pathname.startsWith('/ads') ||
+    location.pathname.startsWith('/social') ||
+    location.pathname === '/';
 
   if (!user && !isPublicRoute) {
     return <Navigate to="/login" replace />;

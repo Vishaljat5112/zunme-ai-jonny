@@ -6,6 +6,7 @@ import { AppProvider } from './context/AppContext';
 import { AppShell } from './components/layout/AppShell';
 import { AdminShell } from './components/layout/AdminShell';
 import { SuperAdminShell } from './components/layout/SuperAdminShell';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 // Public & Auth Pages
 import { LandingPage } from './pages/LandingPage';
@@ -249,9 +250,17 @@ export const App: React.FC = () => {
           <Route path="/mvp-tools" element={<Navigate to="/user/mvp" replace />} />
 
           {/* Admin Operations Console */}
-          <Route path="/admin" element={<AdminShell />}>
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'SUPER_ADMIN']}>
+                <AdminShell />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<AdminDashboardPage />} />
             <Route path="dashboard" element={<AdminDashboardPage />} />
+            <Route path="overview" element={<AdminDashboardPage />} />
             <Route path="users" element={<AdminUserManagementPage />} />
             <Route path="tools" element={<AdminAIToolsPage />} />
             <Route path="warehouse" element={<AdminAIWarehousePage />} />
@@ -263,7 +272,14 @@ export const App: React.FC = () => {
           </Route>
 
           {/* Super Admin Executive Hub (Strict 5 Menu Items + Logout) */}
-          <Route path="/super-admin" element={<SuperAdminShell />}>
+          <Route
+            path="/super-admin"
+            element={
+              <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+                <SuperAdminShell />
+              </ProtectedRoute>
+            }
+          >
             <Route index element={<SuperAdminDashboardPage />} />
             <Route path="dashboard" element={<SuperAdminDashboardPage />} />
             <Route path="users" element={<SuperAdminUsersPage />} />

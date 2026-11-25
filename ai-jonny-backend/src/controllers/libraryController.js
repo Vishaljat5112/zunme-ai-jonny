@@ -9,7 +9,10 @@ export class LibraryController {
   static async listItems(req, res) {
     try {
       const pool = getPool();
-      const userId = req.user?.id || 'usr_creator';
+      if (req.user?.isGuest || !req.user?.id) {
+        return res.status(200).json({ success: true, items: [], count: 0 });
+      }
+      const userId = req.user.id;
       const { category, search } = req.query;
 
       let query = `
@@ -66,7 +69,10 @@ export class LibraryController {
   static async getItem(req, res) {
     try {
       const pool = getPool();
-      const userId = req.user?.id || 'usr_creator';
+      if (req.user?.isGuest || !req.user?.id) {
+        return res.status(401).json({ success: false, error: 'Authentication required.' });
+      }
+      const userId = req.user.id;
       const { id } = req.params;
 
       const [rows] = await pool.query(
@@ -108,7 +114,10 @@ export class LibraryController {
   static async createItem(req, res) {
     try {
       const pool = getPool();
-      const userId = req.user?.id || 'usr_creator';
+      if (req.user?.isGuest || !req.user?.id) {
+        return res.status(401).json({ success: false, error: 'Authentication required.' });
+      }
+      const userId = req.user.id;
       const { title, contentType, content, previewText, sourceMetadata, tags, folderId } = req.body;
 
       if (!title || !content) {
@@ -149,7 +158,10 @@ export class LibraryController {
   static async updateItem(req, res) {
     try {
       const pool = getPool();
-      const userId = req.user?.id || 'usr_creator';
+      if (req.user?.isGuest || !req.user?.id) {
+        return res.status(401).json({ success: false, error: 'Authentication required.' });
+      }
+      const userId = req.user.id;
       const { id } = req.params;
       const { title, content, previewText, folderId } = req.body;
 
@@ -175,7 +187,10 @@ export class LibraryController {
   static async deleteItem(req, res) {
     try {
       const pool = getPool();
-      const userId = req.user?.id || 'usr_creator';
+      if (req.user?.isGuest || !req.user?.id) {
+        return res.status(401).json({ success: false, error: 'Authentication required.' });
+      }
+      const userId = req.user.id;
       const { id } = req.params;
 
       await pool.query('DELETE FROM library_items WHERE id = ? AND user_id = ?', [id, userId]);
@@ -191,7 +206,10 @@ export class LibraryController {
   static async listFolders(req, res) {
     try {
       const pool = getPool();
-      const userId = req.user?.id || 'usr_creator';
+      if (req.user?.isGuest || !req.user?.id) {
+        return res.status(200).json({ success: true, folders: [] });
+      }
+      const userId = req.user.id;
       const [rows] = await pool.query('SELECT * FROM library_folders WHERE user_id = ? ORDER BY name ASC', [userId]);
       return res.status(200).json({ success: true, folders: rows });
     } catch (err) {
@@ -202,7 +220,10 @@ export class LibraryController {
   static async createFolder(req, res) {
     try {
       const pool = getPool();
-      const userId = req.user?.id || 'usr_creator';
+      if (req.user?.isGuest || !req.user?.id) {
+        return res.status(401).json({ success: false, error: 'Authentication required.' });
+      }
+      const userId = req.user.id;
       const { name, color } = req.body;
       const id = 'fld_' + crypto.randomBytes(6).toString('hex');
       await pool.query(

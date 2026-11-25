@@ -6,6 +6,8 @@ export interface User {
   fullName: string;
   role: UserRole;
   avatarUrl?: string;
+  avatar_initials?: string;
+  plan_badge?: string;
   createdAt: string;
 }
 
@@ -23,6 +25,9 @@ export interface ChatMessage {
   content: string;
   createdAt: string;
   isStreaming?: boolean;
+  status?: 'completed' | 'cancelled' | 'failed' | 'pending';
+  model?: string;
+  attachmentIds?: string[];
 }
 
 export interface SearchSource {
@@ -67,14 +72,15 @@ export interface GeneratedContent {
   createdAt: string;
 }
 
-export type LibraryCategory = 'ALL' | 'TEXT' | 'MARKETING' | 'RESEARCH';
+export type LibraryCategory = 'ALL' | 'TEXT' | 'MARKETING' | 'RESEARCH' | 'OFFICE' | 'CHART' | string;
 
 export interface SavedLibraryItem {
   id: string;
   title: string;
-  contentType: 'TEXT' | 'MARKETING' | 'RESEARCH';
+  contentType: 'TEXT' | 'MARKETING' | 'RESEARCH' | 'OFFICE' | 'CHART' | string;
   content: string;
   previewText: string;
+  folderId?: string | null;
   sourceMetadata?: SearchSource[];
   tags?: string[];
   createdAt: string;

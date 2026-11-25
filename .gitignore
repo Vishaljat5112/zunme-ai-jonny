@@ -1,0 +1,35 @@
+# Root .gitignore for Zunme AI Monorepo
+node_modules/
+dist/
+dist-ssr/
+build/
+.cache/
+
+# Local Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# Database Backups & Dumps
+*.sql
+data/*.sql
+ai-jonny-backend/data/*.sql
+!ai-jonny-backend/src/db/migrations/*.sql
+
+# Uploads & Temporary Media
+uploads/*
+!uploads/.gitkeep
+ai-jonny-backend/uploads/*
+!ai-jonny-backend/uploads/.gitkeep
+
+# IDE & OS Metadata
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+
+test-results/
+playwright-report/
+playwright/.cache/

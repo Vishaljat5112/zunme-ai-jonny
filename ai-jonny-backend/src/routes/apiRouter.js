@@ -48,6 +48,7 @@ apiRouter.get('/images/file/:filename', ImageController.serveFile);
 // Authentication Routes (Public)
 apiRouter.post('/auth/register', AuthController.register);
 apiRouter.post('/auth/login', AuthController.login);
+apiRouter.post('/auth/persona-login', AuthController.personaLogin);
 
 // Authenticated Routes
 apiRouter.use(authMiddleware);

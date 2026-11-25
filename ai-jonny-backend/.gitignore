@@ -1,5 +1,13 @@
 node_modules
 .env
+.env.*
+!.env.example
+
+# Backups and raw SQL dumps (protecting schema migrations)
+*.sql
+data/*.sql
+!src/db/migrations/*.sql
+
+# Local uploads
 uploads/*
 !uploads/.gitkeep
-
