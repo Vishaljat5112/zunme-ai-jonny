@@ -484,12 +484,29 @@ class ApiClient {
     }));
   }
 
+  public async getLibraryItem(id: string): Promise<SavedLibraryItem> {
+    const res = await this.request<{ success: boolean; item: SavedLibraryItem }>(`/library/${encodeURIComponent(id)}`, {
+      method: 'GET'
+    });
+    return res.item;
+  }
+
   public async createLibraryItem(item: Omit<SavedLibraryItem, 'id' | 'createdAt'>): Promise<SavedLibraryItem> {
     const res = await this.request<{ success: boolean; item: SavedLibraryItem }>('/library', {
       method: 'POST',
       body: JSON.stringify(item)
     });
     return res.item;
+  }
+
+  public async updateLibraryItem(
+    id: string,
+    updates: Partial<Pick<SavedLibraryItem, 'title' | 'content' | 'previewText' | 'folderId' | 'tags' | 'sourceMetadata'>>
+  ): Promise<{ success: boolean; id: string }> {
+    return this.request<{ success: boolean; id: string }>(`/library/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates)
+    });
   }
 
   public async deleteLibraryItem(id: string): Promise<void> {
@@ -504,6 +521,44 @@ class ApiClient {
     return this.request<{ provider: string; available: boolean; models: ModelInfo[] }>('/models', {
       method: 'GET'
     });
+  }
+
+  // --- EgoLytics BFOV Charts Admin & Module Controls ---
+
+  public async getChartsStats(): Promise<{
+    success: boolean;
+    stats: {
+      totalCharts: number;
+      uniqueCreators: number;
+      lastCreatedAt: string | null;
+      modeBreakdown: Record<string, number>;
+      recentCharts: Array<{
+        id: string;
+        userId: string;
+        title: string;
+        diagramMode?: string;
+        nodeCount?: number;
+        edgeCount?: number;
+        createdAt: string;
+      }>;
+    };
+  }> {
+    return this.request('/admin/charts/stats', { method: 'GET' });
+  }
+
+  public async getChartsSettings(): Promise<{ success: boolean; settings: { chartsEnabled: boolean } }> {
+    return this.request('/admin/charts/settings', { method: 'GET' });
+  }
+
+  public async updateChartsSettings(chartsEnabled: boolean): Promise<{ success: boolean; message: string; settings: { chartsEnabled: boolean } }> {
+    return this.request('/admin/charts/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ chartsEnabled })
+    });
+  }
+
+  public async getChartsStatus(): Promise<{ success: boolean; enabled: boolean; module: string }> {
+    return this.request('/charts/status', { method: 'GET' });
   }
 }
 

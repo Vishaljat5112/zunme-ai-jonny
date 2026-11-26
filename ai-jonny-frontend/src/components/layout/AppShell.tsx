@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import {
   Home,
@@ -48,6 +48,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { NotificationBell } from '../common/NotificationBell';
 import { EcosystemAppsLauncher } from './EcosystemAppsLauncher';
+import { apiClient } from '../../services/apiClient';
 import './AppShell.css';
 import './SuperAdminShell.css';
 
@@ -64,8 +65,19 @@ export const AppShell: React.FC = () => {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [chartsModuleEnabled, setChartsModuleEnabled] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    apiClient.getChartsStatus()
+      .then((res) => {
+        if (res.success && typeof res.enabled === 'boolean') {
+          setChartsModuleEnabled(res.enabled);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
 
   const handleNewChatClick = () => {
@@ -750,6 +762,20 @@ export const AppShell: React.FC = () => {
               >
                 <FileSpreadsheet size={17} />
                 <span>Data & Spreadsheets</span>
+              </NavLink>
+
+              <NavLink
+                to="/user/charts"
+                className={({ isActive }) => `sidebar-nav-item ${isActive || location.pathname.startsWith('/user/charts') || location.pathname === '/charts' ? 'active' : ''}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <BarChart2 size={17} />
+                <span>EgoLytics BFOV Charts</span>
+                {!chartsModuleEnabled && user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN' && (
+                  <span style={{ fontSize: '10px', background: '#FEE2E2', color: '#EF4444', padding: '1px 6px', borderRadius: '4px', fontWeight: '700', marginLeft: 'auto' }}>
+                    Disabled
+                  </span>
+                )}
               </NavLink>
 
               <NavLink

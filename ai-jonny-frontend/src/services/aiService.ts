@@ -13,6 +13,8 @@ export interface GenerateCompletionOptions {
   temperature?: number;
   maxTokens?: number;
   webSearch?: boolean;
+  context?: string;
+  signal?: AbortSignal;
 }
 
 export interface CompletionResponse {
@@ -68,13 +70,15 @@ export class AiService {
   ): Promise<CompletionResponse> {
     return apiClient.request<CompletionResponse>('/ai/generate', {
       method: 'POST',
+      signal: options.signal,
       body: JSON.stringify({
         prompt,
         systemPrompt: options.systemPrompt || 'You are Zunme AI, an expert agentic intelligence system.',
         model: options.model,
         temperature: options.temperature ?? 0.7,
         maxTokens: options.maxTokens ?? 2048,
-        webSearch: options.webSearch ?? false
+        webSearch: options.webSearch ?? false,
+        context: options.context
       })
     });
   }
