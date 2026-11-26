@@ -15,7 +15,8 @@ import {
   Layers,
   ChevronRight,
   Mic,
-  BarChart2
+  BarChart2,
+  Users
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import '../../styles/dashboard.css';
@@ -265,6 +266,48 @@ export const UserHomePage: React.FC = () => {
           </NavLink>
           <NavLink to="/user/charts" className="btn btn-primary btn-sm home-mvp-btn" style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '700' }}>
             <span>Launch Charts Hub</span>
+            <ArrowRight size={14} />
+          </NavLink>
+        </div>
+      </div>
+
+      {/* CRM nErgy Enterprise Feature Banner */}
+      <div className="glass-panel home-mvp-banner" style={{ borderLeft: '4px solid #059669', marginBottom: '24px' }}>
+        <div className="home-mvp-info">
+          <div
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #059669 0%, #10B981 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              boxShadow: '0 4px 12px rgba(5, 150, 105, 0.25)',
+              flexShrink: 0
+            }}
+          >
+            <Users size={22} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '15px', fontWeight: '800', color: '#111625' }}>
+                CRM nErgy Enterprise Workspace
+              </span>
+              <span className="badge badge-success" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                Bestie AI Copilot &amp; Pipelines
+              </span>
+            </div>
+            <div style={{ fontSize: '12.5px', color: '#5F6B85', marginTop: '2px' }}>
+              Manage contacts, partners, multi-stage deals, and AI-grounded prospect research in real-time.
+            </div>
+          </div>
+        </div>
+
+        <div className="home-mvp-action-row">
+          <NavLink to="/business/crm" className="btn btn-primary btn-sm home-mvp-btn" style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '700', background: '#059669', borderColor: '#059669' }}>
+            <span>Launch CRM Workspace</span>
             <ArrowRight size={14} />
           </NavLink>
         </div>

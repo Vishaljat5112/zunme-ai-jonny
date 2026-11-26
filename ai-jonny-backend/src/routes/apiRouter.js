@@ -28,6 +28,7 @@ import { StoreController } from '../controllers/storeController.js';
 import { MerchantController } from '../controllers/merchantController.js';
 import { MailController } from '../controllers/mailController.js';
 import { ChartsAdminController } from '../controllers/chartsAdminController.js';
+import { CrmController } from '../controllers/crmController.js';
 
 import { AiGenerateController } from '../controllers/aiGenerateController.js';
 import { SeoCrawlerController } from '../controllers/seoCrawlerController.js';
@@ -46,6 +47,7 @@ apiRouter.get('/models', ModelController.listModels);
 apiRouter.get('/images/health', ImageController.health);
 apiRouter.get('/images/file/:filename', ImageController.serveFile);
 apiRouter.get('/charts/status', ChartsAdminController.getStatus);
+apiRouter.get('/crm/status', CrmController.getStatus);
 
 // Authentication Routes (Public)
 apiRouter.post('/auth/register', AuthController.register);
@@ -74,6 +76,11 @@ apiRouter.get('/admin/audit-logs', requireRole('ADMIN', 'SUPER_ADMIN'), AdminCon
 apiRouter.get('/admin/charts/stats', requireRole('ADMIN', 'SUPER_ADMIN'), ChartsAdminController.getStats);
 apiRouter.get('/admin/charts/settings', requireRole('ADMIN', 'SUPER_ADMIN'), ChartsAdminController.getSettings);
 apiRouter.patch('/admin/charts/settings', requireRole('ADMIN', 'SUPER_ADMIN'), ChartsAdminController.updateSettings);
+
+// CRM nErgy Admin Controls & Telemetry
+apiRouter.get('/admin/crm/stats', requireRole('ADMIN', 'SUPER_ADMIN'), CrmController.getAdminStats);
+apiRouter.get('/admin/crm/settings', requireRole('ADMIN', 'SUPER_ADMIN'), CrmController.getSettings);
+apiRouter.patch('/admin/crm/settings', requireRole('ADMIN', 'SUPER_ADMIN'), CrmController.updateSettings);
 
 // Real-Time Dynamic Notification System
 apiRouter.get('/notifications', NotificationController.list);
@@ -266,3 +273,41 @@ apiRouter.get('/mail/accounts', MailController.listAccounts);
 apiRouter.get('/mail/folders', MailController.listFolders);
 apiRouter.get('/mail/inbox', MailController.listMessages);
 apiRouter.post('/mail/send', MailController.sendMessage);
+
+// 14. CRM nErgy Enterprise Bridge (Authenticated, Multi-Tenant Isolated, Governed)
+apiRouter.get('/crm/metrics', requireAuth, CrmController.checkModuleEnabled, CrmController.getMetrics);
+apiRouter.get('/crm/contacts', requireAuth, CrmController.checkModuleEnabled, CrmController.getContacts);
+apiRouter.post('/crm/contacts', requireAuth, CrmController.checkModuleEnabled, CrmController.createContact);
+apiRouter.post('/crm/contacts/bulk-import', requireAuth, CrmController.checkModuleEnabled, CrmController.bulkImportContacts);
+apiRouter.get('/crm/contacts/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.getContactById);
+apiRouter.put('/crm/contacts/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.updateContact);
+apiRouter.delete('/crm/contacts/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.deleteContact);
+
+apiRouter.get('/crm/deals', requireAuth, CrmController.checkModuleEnabled, CrmController.getDeals);
+apiRouter.post('/crm/deals', requireAuth, CrmController.checkModuleEnabled, CrmController.createDeal);
+apiRouter.get('/crm/deals/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.getDealById);
+apiRouter.patch('/crm/deals/:id/stage', requireAuth, CrmController.checkModuleEnabled, CrmController.updateDealStage);
+apiRouter.put('/crm/deals/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.updateDeal);
+apiRouter.delete('/crm/deals/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.deleteDeal);
+apiRouter.post('/crm/deals/:id/convert-to-project', requireAuth, CrmController.checkModuleEnabled, CrmController.convertDealToProject);
+
+// Activities & Communication History
+apiRouter.get('/crm/activities', requireAuth, CrmController.checkModuleEnabled, CrmController.getActivities);
+apiRouter.post('/crm/activities', requireAuth, CrmController.checkModuleEnabled, CrmController.createActivity);
+apiRouter.delete('/crm/activities/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.deleteActivity);
+
+// Projects & Delivery
+apiRouter.get('/crm/projects', requireAuth, CrmController.checkModuleEnabled, CrmController.getProjects);
+apiRouter.post('/crm/projects', requireAuth, CrmController.checkModuleEnabled, CrmController.createProject);
+apiRouter.get('/crm/projects/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.getProjectById);
+apiRouter.put('/crm/projects/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.updateProject);
+apiRouter.delete('/crm/projects/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.deleteProject);
+
+// Tasks & Action Reminders
+apiRouter.get('/crm/tasks', requireAuth, CrmController.checkModuleEnabled, CrmController.getTasks);
+apiRouter.post('/crm/tasks', requireAuth, CrmController.checkModuleEnabled, CrmController.createTask);
+apiRouter.put('/crm/tasks/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.updateTask);
+apiRouter.delete('/crm/tasks/:id', requireAuth, CrmController.checkModuleEnabled, CrmController.deleteTask);
+
+// Bestie AI CRM Copilot & Prospect Intelligence
+apiRouter.post('/crm/ai/copilot', requireAuth, CrmController.checkModuleEnabled, CrmController.copilotChat);

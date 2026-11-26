@@ -112,6 +112,18 @@ export class CrmAuthBridge {
    * @returns {Promise<Object>} { userId, tenantId, role, email }
    */
   static async resolveUserContext(reqUser = null) {
+    // 0. If authenticated internal Zunme user without external CRM token
+    if (reqUser?.id && !reqUser?.crmToken && !reqUser?.isGuest && reqUser.id !== 'cmuo3wl3c0001toeory5wre6k') {
+      return {
+        userId: reqUser.id,
+        name: reqUser.name || 'User',
+        email: reqUser.email,
+        role: reqUser.role || 'BUSINESS_OWNER',
+        tenantId: reqUser.tenantId || 'global',
+        crmDataSource: 'INTERNAL'
+      };
+    }
+
     // 1. If explicit CRM credentials already attached or reqUser is already a valid userContext
     if (reqUser?.crmContext?.userId && reqUser?.crmContext?.tenantId) {
       return reqUser.crmContext;

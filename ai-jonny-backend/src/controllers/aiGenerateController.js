@@ -46,6 +46,30 @@ export class AiGenerateController {
         }
       }
 
+      // Enforce CRM nErgy module availability if CRM AI generation is requested
+      const isCrmContext = req.body.context === 'CRM' ||
+        req.body.templateKey === 'CRM' ||
+        (typeof systemPrompt === 'string' && (systemPrompt.includes('CRM nErgy') || systemPrompt.includes('CRM Copilot')));
+      if (isCrmContext) {
+        try {
+          const pool = getPool();
+          const [sett] = await pool.query(
+            "SELECT setting_value FROM platform_settings WHERE setting_key = 'crm_module_enabled'"
+          );
+          if (sett.length > 0 && sett[0].setting_value === 'false') {
+            const userRole = req.user?.role;
+            if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+              return res.status(403).json({
+                success: false,
+                error: 'CRM nErgy module is currently disabled by administrator.'
+              });
+            }
+          }
+        } catch (settErr) {
+          console.warn('[AiGenerateController] CRM module check notice:', settErr.message);
+        }
+      }
+
       const provider = getAiProvider();
       const messages = [
         { role: 'system', content: systemPrompt },

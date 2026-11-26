@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings,
   Shield,
@@ -8,9 +8,12 @@ import {
   Save,
   CheckCircle2,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  Layers,
+  Power
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { apiClient } from '../../services/apiClient';
 import '../../styles/dashboard.css';
 
 export const SuperAdminSettingsPage: React.FC = () => {
@@ -22,15 +25,32 @@ export const SuperAdminSettingsPage: React.FC = () => {
   const [chatHourlyCap, setChatHourlyCap] = useState(60);
   const [searchHourlyCap, setSearchHourlyCap] = useState(30);
   const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(120);
+  const [crmModuleEnabled, setCrmModuleEnabled] = useState(true);
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  useEffect(() => {
+    apiClient.getCrmStatus()
+      .then((res) => {
+        if (res.success && typeof res.enabled === 'boolean') {
+          setCrmModuleEnabled(res.enabled);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      await apiClient.updateAdminCrmSettings(crmModuleEnabled);
+    } catch (err: any) {
+      console.warn('CRM setting update warning:', err.message);
+    }
+
     addAuditLog({
       actor: user?.fullName || 'SuperAdmin (Root)',
       role: 'SUPER_ADMIN',
       action: 'PLATFORM_SETTINGS_UPDATED',
-      resource: `Routing: ${defaultModel}, Maintenance: ${maintenanceMode ? 'ON' : 'OFF'}`,
-      ipAddress: '192.168.1.104',
+      resource: `CRM nErgy: ${crmModuleEnabled ? 'ENABLED' : 'DISABLED'}, Routing: ${defaultModel}, Maintenance: ${maintenanceMode ? 'ON' : 'OFF'}`,
+      ipAddress: '127.0.0.1',
       status: 'SUCCESS'
     });
     showToast('Global platform settings saved successfully', 'success');
@@ -43,6 +63,7 @@ export const SuperAdminSettingsPage: React.FC = () => {
     setChatHourlyCap(60);
     setSearchHourlyCap(30);
     setSessionTimeoutMinutes(120);
+    setCrmModuleEnabled(true);
     showToast('Settings restored to system baseline defaults', 'info');
   };
 
@@ -233,6 +254,52 @@ export const SuperAdminSettingsPage: React.FC = () => {
               <span style={{ fontSize: '11px', color: '#5F6B85', marginTop: '4px', display: 'block' }}>
                 Forces re-authentication after specified inactivity window.
               </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Enterprise Feature Suites & Module Governance */}
+        <div className="glass-panel">
+          <div className="panel-header">
+            <div className="panel-title">
+              <Layers size={18} color="#059669" />
+              Enterprise Feature Suites &amp; Module Availability
+            </div>
+            <span className="badge badge-success">Platform Governance</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px', background: '#FAFBFD', border: '1px solid #E8ECF5', borderRadius: '10px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <strong style={{ fontSize: '14px', color: '#111625' }}>CRM nErgy Workspace &amp; Bestie AI Copilot</strong>
+                  <span className={`badge ${crmModuleEnabled ? 'badge-success' : 'badge-neutral'}`}>
+                    {crmModuleEnabled ? 'ENABLED' : 'DISABLED'}
+                  </span>
+                </div>
+                <p style={{ fontSize: '12px', color: '#5F6B85', margin: '4px 0 0 0' }}>
+                  Controls client access to `/business/crm`, communication tracking, pipeline management, and CRM AI tools.
+                  When disabled, non-admin users are strictly blocked with 403 Forbidden.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className={`btn btn-sm ${crmModuleEnabled ? 'btn-danger' : 'btn-secondary'}`}
+                onClick={() => {
+                  setCrmModuleEnabled(!crmModuleEnabled);
+                  showToast(`CRM nErgy module ${!crmModuleEnabled ? 'Enabled' : 'Disabled'} (Apply settings to persist)`, 'info');
+                }}
+                style={{
+                  background: crmModuleEnabled ? '#FEECEB' : '#E8F8F0',
+                  borderColor: crmModuleEnabled ? '#EF4444' : '#059669',
+                  color: crmModuleEnabled ? '#E11D48' : '#059669',
+                  fontWeight: 700
+                }}
+              >
+                <Power size={13} />
+                <span>{crmModuleEnabled ? 'Disable Module' : 'Enable Module'}</span>
+              </button>
             </div>
           </div>
         </div>

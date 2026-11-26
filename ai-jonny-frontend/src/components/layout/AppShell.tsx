@@ -66,6 +66,7 @@ export const AppShell: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [chartsModuleEnabled, setChartsModuleEnabled] = useState(true);
+  const [crmModuleEnabled, setCrmModuleEnabled] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -74,6 +75,14 @@ export const AppShell: React.FC = () => {
       .then((res) => {
         if (res.success && typeof res.enabled === 'boolean') {
           setChartsModuleEnabled(res.enabled);
+        }
+      })
+      .catch(() => {});
+
+    apiClient.getCrmStatus()
+      .then((res) => {
+        if (res.success && typeof res.enabled === 'boolean') {
+          setCrmModuleEnabled(res.enabled);
         }
       })
       .catch(() => {});
@@ -98,22 +107,25 @@ export const AppShell: React.FC = () => {
   };
 
   // Allow public and guest access across user workspaces; protected consoles are guarded by ProtectedRoute
+  const isCrmRoute = location.pathname.startsWith('/business/crm');
   const isPublicRoute =
-    location.pathname.startsWith('/search') ||
-    location.pathname.startsWith('/store') ||
-    location.pathname.startsWith('/shop') ||
-    location.pathname.startsWith('/merchant-zone') ||
-    location.pathname.startsWith('/merchant') ||
-    location.pathname.startsWith('/user') ||
-    location.pathname.startsWith('/warehouse') ||
-    location.pathname.startsWith('/creator') ||
-    location.pathname.startsWith('/seo') ||
-    location.pathname.startsWith('/business') ||
-    location.pathname.startsWith('/ads') ||
-    location.pathname.startsWith('/social') ||
-    location.pathname === '/';
+    !isCrmRoute && (
+      location.pathname.startsWith('/search') ||
+      location.pathname.startsWith('/store') ||
+      location.pathname.startsWith('/shop') ||
+      location.pathname.startsWith('/merchant-zone') ||
+      location.pathname.startsWith('/merchant') ||
+      location.pathname.startsWith('/user') ||
+      location.pathname.startsWith('/warehouse') ||
+      location.pathname.startsWith('/creator') ||
+      location.pathname.startsWith('/seo') ||
+      location.pathname.startsWith('/business') ||
+      location.pathname.startsWith('/ads') ||
+      location.pathname.startsWith('/social') ||
+      location.pathname === '/'
+    );
 
-  if (!user && !isPublicRoute) {
+  if (!user && (isCrmRoute || !isPublicRoute)) {
     return <Navigate to="/login" replace />;
   }
 
