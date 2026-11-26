@@ -53,6 +53,13 @@ import { AdOnboardingWizard } from './pages/ads/AdOnboardingWizard';
 import { AdFormatBuildersPage } from './pages/ads/AdFormatBuildersPage';
 import { MVPPlatformsWorkspacePage } from './pages/mvp/MVPPlatformsWorkspacePage';
 
+// EgoLytics BFOV Charts Feature Suite (Phase 1)
+import { ChartsOverviewPage } from './pages/charts/ChartsOverviewPage';
+import { ChartsEditorPage } from './pages/charts/ChartsEditorPage';
+import { ChartsAiGeneratorPage } from './pages/charts/ChartsAiGeneratorPage';
+import { ChartsTemplatesPage } from './pages/charts/ChartsTemplatesPage';
+import { ChartsMyChartsPage } from './pages/charts/ChartsMyChartsPage';
+
 // Admin Operations Pages
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminUserManagementPage } from './pages/admin/AdminUserManagementPage';
@@ -130,6 +137,15 @@ export const App: React.FC = () => {
             <Route path="codex" element={<Navigate to="/user/coding" replace />} />
             <Route path="animation" element={<MultiModalStudioPage defaultEngine="animation" />} />
             <Route path="multimodal" element={<MultiModalStudioPage />} />
+
+            {/* EgoLytics BFOV Charts Feature Suite (Phase 1) */}
+            <Route path="charts" element={<ChartsOverviewPage />} />
+            <Route path="charts/overview" element={<ChartsOverviewPage />} />
+            <Route path="charts/editor" element={<ChartsEditorPage />} />
+            <Route path="charts/editor/:chartId" element={<ChartsEditorPage />} />
+            <Route path="charts/ai-generator" element={<ChartsAiGeneratorPage />} />
+            <Route path="charts/templates" element={<ChartsTemplatesPage />} />
+            <Route path="charts/my-charts" element={<ChartsMyChartsPage />} />
           </Route>
 
           {/* Backward Compatibility: Redirect /app/* to /user/* */}
@@ -156,6 +172,9 @@ export const App: React.FC = () => {
           <Route path="/chat" element={<Navigate to="/user/chat" replace />} />
           <Route path="/search" element={<Navigate to="/user/search" replace />} />
           <Route path="/spreadsheets" element={<Navigate to="/user/spreadsheets" replace />} />
+          <Route path="/charts" element={<Navigate to="/user/charts" replace />} />
+          <Route path="/charts/editor" element={<Navigate to="/user/charts/editor" replace />} />
+          <Route path="/charts/templates" element={<Navigate to="/user/charts/templates" replace />} />
           <Route path="/agents" element={<Navigate to="/user/agents" replace />} />
           <Route path="/coding" element={<Navigate to="/user/coding" replace />} />
           <Route path="/animation" element={<Navigate to="/user/animation" replace />} />

@@ -27,6 +27,7 @@ import { SocialController } from '../controllers/socialController.js';
 import { StoreController } from '../controllers/storeController.js';
 import { MerchantController } from '../controllers/merchantController.js';
 import { MailController } from '../controllers/mailController.js';
+import { ChartsAdminController } from '../controllers/chartsAdminController.js';
 
 import { AiGenerateController } from '../controllers/aiGenerateController.js';
 import { SeoCrawlerController } from '../controllers/seoCrawlerController.js';
@@ -44,6 +45,7 @@ apiRouter.get('/health/benchmark', HealthController.benchmark);
 apiRouter.get('/models', ModelController.listModels);
 apiRouter.get('/images/health', ImageController.health);
 apiRouter.get('/images/file/:filename', ImageController.serveFile);
+apiRouter.get('/charts/status', ChartsAdminController.getStatus);
 
 // Authentication Routes (Public)
 apiRouter.post('/auth/register', AuthController.register);
@@ -67,6 +69,11 @@ apiRouter.get('/admin/metrics', AdminController.getMetrics);
 apiRouter.get('/admin/users', requireRole('ADMIN', 'SUPER_ADMIN'), AdminController.getUsers);
 apiRouter.patch('/admin/users/:id', requireRole('ADMIN', 'SUPER_ADMIN'), AdminController.updateUserStatus);
 apiRouter.get('/admin/audit-logs', requireRole('ADMIN', 'SUPER_ADMIN'), AdminController.getAuditLogs);
+
+// EgoLytics BFOV Charts Admin Controls & Telemetry
+apiRouter.get('/admin/charts/stats', requireRole('ADMIN', 'SUPER_ADMIN'), ChartsAdminController.getStats);
+apiRouter.get('/admin/charts/settings', requireRole('ADMIN', 'SUPER_ADMIN'), ChartsAdminController.getSettings);
+apiRouter.patch('/admin/charts/settings', requireRole('ADMIN', 'SUPER_ADMIN'), ChartsAdminController.updateSettings);
 
 // Real-Time Dynamic Notification System
 apiRouter.get('/notifications', NotificationController.list);

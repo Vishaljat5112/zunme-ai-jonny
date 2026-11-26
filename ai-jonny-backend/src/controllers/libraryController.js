@@ -124,6 +124,31 @@ export class LibraryController {
         return res.status(400).json({ success: false, error: 'Title and content are required.' });
       }
 
+      // Validate JSON structure and check module availability for chart assets
+      if (contentType === 'CHART') {
+        const [sett] = await pool.query(
+          "SELECT setting_value FROM platform_settings WHERE setting_key = 'charts_module_enabled'"
+        );
+        if (sett.length > 0 && sett[0].setting_value === 'false') {
+          const userRole = req.user?.role;
+          if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+            return res.status(403).json({
+              success: false,
+              error: 'EgoLytics BFOV Charts module is currently disabled by administrator.'
+            });
+          }
+        }
+
+        try {
+          const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+          if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) {
+            return res.status(400).json({ success: false, error: 'Malformed chart JSON: nodes and edges arrays are required.' });
+          }
+        } catch {
+          return res.status(400).json({ success: false, error: 'Invalid JSON format for chart specification.' });
+        }
+      }
+
       const id = 'lib_' + crypto.randomBytes(6).toString('hex');
       const safePreview = previewText || content.slice(0, 160) + '...';
       const metaStr = sourceMetadata ? JSON.stringify(sourceMetadata) : null;
@@ -163,17 +188,74 @@ export class LibraryController {
       }
       const userId = req.user.id;
       const { id } = req.params;
-      const { title, content, previewText, folderId } = req.body;
+      const { title, content, previewText, folderId, sourceMetadata, tags } = req.body;
 
-      await pool.query(
+      // Check existing item and verify chart module availability
+      const [existing] = await pool.query('SELECT * FROM library_items WHERE id = ? AND user_id = ?', [id, userId]);
+      if (existing.length === 0) {
+        return res.status(404).json({ success: false, error: 'Library item not found or unauthorized.' });
+      }
+
+      if (existing[0].content_type === 'CHART') {
+        const [sett] = await pool.query(
+          "SELECT setting_value FROM platform_settings WHERE setting_key = 'charts_module_enabled'"
+        );
+        if (sett.length > 0 && sett[0].setting_value === 'false') {
+          const userRole = req.user?.role;
+          if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+            return res.status(403).json({
+              success: false,
+              error: 'EgoLytics BFOV Charts module is currently disabled by administrator.'
+            });
+          }
+        }
+      }
+
+      // Validate chart JSON if content is provided
+      if (content) {
+        try {
+          const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+          if (parsed && typeof parsed === 'object') {
+            if (parsed.nodes && !Array.isArray(parsed.nodes)) {
+              return res.status(400).json({ success: false, error: 'Malformed chart JSON: nodes must be an array.' });
+            }
+            if (parsed.edges && !Array.isArray(parsed.edges)) {
+              return res.status(400).json({ success: false, error: 'Malformed chart JSON: edges must be an array.' });
+            }
+          }
+        } catch {
+          return res.status(400).json({ success: false, error: 'Invalid JSON format for chart specification.' });
+        }
+      }
+
+      const metaStr = sourceMetadata !== undefined ? (sourceMetadata ? JSON.stringify(sourceMetadata) : null) : null;
+      const tagsStr = tags !== undefined ? (tags ? JSON.stringify(tags) : '[]') : null;
+
+      const [result] = await pool.query(
         `UPDATE library_items 
          SET title = COALESCE(?, title),
              content = COALESCE(?, content),
              preview_text = COALESCE(?, preview_text),
-             folder_id = COALESCE(?, folder_id)
+             folder_id = COALESCE(?, folder_id),
+             source_metadata = CASE WHEN ? IS NOT NULL THEN ? ELSE source_metadata END,
+             tags = CASE WHEN ? IS NOT NULL THEN ? ELSE tags END,
+             updated_at = CURRENT_TIMESTAMP
          WHERE id = ? AND user_id = ?`,
-        [title, content, previewText, folderId, id, userId]
+        [
+          title || null,
+          content || null,
+          previewText || null,
+          folderId || null,
+          metaStr, metaStr,
+          tagsStr, tagsStr,
+          id,
+          userId
+        ]
       );
+
+      if (result.matchedRows === 0) {
+        return res.status(404).json({ success: false, error: 'Library item not found or unauthorized.' });
+      }
 
       return res.status(200).json({ success: true, id });
     } catch (err) {
@@ -193,7 +275,10 @@ export class LibraryController {
       const userId = req.user.id;
       const { id } = req.params;
 
-      await pool.query('DELETE FROM library_items WHERE id = ? AND user_id = ?', [id, userId]);
+      const [result] = await pool.query('DELETE FROM library_items WHERE id = ? AND user_id = ?', [id, userId]);
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ success: false, error: 'Library item not found or unauthorized.' });
+      }
       return res.status(200).json({ success: true, id });
     } catch (err) {
       return res.status(500).json({ success: false, error: err.message });

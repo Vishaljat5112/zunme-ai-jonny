@@ -58,12 +58,85 @@ export class StorageService {
     previewText?: string;
     tags?: string[];
   }): Promise<SavedLibraryItem> {
+    // Validate JSON before sending
+    try {
+      JSON.parse(params.chartSpecJson);
+    } catch {
+      throw new Error('Invalid chart specification JSON format.');
+    }
+
     return apiClient.createLibraryItem({
-      title: params.title,
+      title: params.title.trim() || 'Untitled Diagram',
       contentType: 'CHART',
       content: params.chartSpecJson,
       previewText: params.previewText || `EgoLytics ${params.chartType || 'Data'} Chart Specification`,
       tags: params.tags || ['Chart', 'EgoLytics', params.chartType || 'Chart']
+    });
+  }
+
+  /**
+   * Fetch a single saved chart asset by ID
+   */
+  public async getChartAsset(id: string): Promise<SavedLibraryItem | null> {
+    try {
+      return await apiClient.getLibraryItem(id);
+    } catch (err) {
+      console.warn(`[StorageService] Failed to load chart asset ${id}:`, err);
+      return null;
+    }
+  }
+
+  /**
+   * Update an existing chart asset in-place without creating duplicates
+   */
+  public async updateChartAsset(
+    id: string,
+    params: {
+      title?: string;
+      chartSpecJson?: string;
+      chartType?: string;
+      previewText?: string;
+      tags?: string[];
+    }
+  ): Promise<void> {
+    if (params.chartSpecJson) {
+      try {
+        JSON.parse(params.chartSpecJson);
+      } catch {
+        throw new Error('Invalid chart specification JSON format.');
+      }
+    }
+
+    await apiClient.updateLibraryItem(id, {
+      title: params.title ? params.title.trim() : undefined,
+      content: params.chartSpecJson,
+      previewText: params.previewText,
+      tags: params.tags
+    });
+  }
+
+  /**
+   * Rename an existing chart asset directly
+   */
+  public async renameChartAsset(id: string, newTitle: string): Promise<void> {
+    const trimmed = newTitle.trim();
+    if (!trimmed) throw new Error('Chart title cannot be empty.');
+    await apiClient.updateLibraryItem(id, { title: trimmed });
+  }
+
+  /**
+   * Duplicate an existing chart asset into a new record
+   */
+  public async duplicateChartAsset(id: string): Promise<SavedLibraryItem> {
+    const original = await this.getChartAsset(id);
+    if (!original) throw new Error('Original chart not found or unauthorized.');
+
+    const newTitle = `${original.title} (Copy)`;
+    return this.saveChartAsset({
+      title: newTitle,
+      chartSpecJson: original.content,
+      previewText: original.previewText,
+      tags: original.tags
     });
   }
 

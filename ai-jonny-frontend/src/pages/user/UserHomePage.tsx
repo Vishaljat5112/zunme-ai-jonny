@@ -14,7 +14,8 @@ import {
   Package,
   Layers,
   ChevronRight,
-  Mic
+  Mic,
+  BarChart2
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import '../../styles/dashboard.css';
@@ -219,6 +220,51 @@ export const UserHomePage: React.FC = () => {
           </div>
           <NavLink to="/user/mvp" className="btn btn-primary btn-sm home-mvp-btn" style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '700' }}>
             <span>Launch MVP Suite</span>
+            <ArrowRight size={14} />
+          </NavLink>
+        </div>
+      </div>
+
+      {/* EgoLytics BFOV Charts Feature Banner (Phase 1) */}
+      <div className="glass-panel home-mvp-banner" style={{ borderLeft: '4px solid #6E56CF', marginBottom: '24px' }}>
+        <div className="home-mvp-info">
+          <div
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #0284C7 0%, #6E56CF 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+              flexShrink: 0
+            }}
+          >
+            <BarChart2 size={22} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '15px', fontWeight: '800', color: '#111625' }}>
+                EgoLytics BFOV Charts Suite
+              </span>
+              <span className="badge badge-primary" style={{ fontSize: '11px', padding: '2px 8px', background: '#F4F1FD', color: '#6E56CF' }}>
+                React Flow &amp; AI Engine
+              </span>
+            </div>
+            <div style={{ fontSize: '12.5px', color: '#5F6B85', marginTop: '2px' }}>
+              Create interactive system architectures, decision flowcharts, and AI-synthesized topology blueprints.
+            </div>
+          </div>
+        </div>
+
+        <div className="home-mvp-action-row">
+          <NavLink to="/user/charts/editor" className="btn btn-outline btn-sm" style={{ padding: '8px 14px', fontSize: '13px', fontWeight: '700' }}>
+            <span>New Diagram</span>
+          </NavLink>
+          <NavLink to="/user/charts" className="btn btn-primary btn-sm home-mvp-btn" style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '700' }}>
+            <span>Launch Charts Hub</span>
             <ArrowRight size={14} />
           </NavLink>
         </div>
